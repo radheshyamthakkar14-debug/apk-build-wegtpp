@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML → Java કન્વર્ટર</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #ffffff; --text: #1f2430; --muted: #6b7280;
+    --primary: #2563eb; --primary-d: #1d4ed8; --border: #d9dce5; --ok: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Gujarati", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 8px 0 4px; }
+  p.sub { margin: 0 0 16px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  textarea {
+    width: 100%; min-height: 240px; resize: vertical; padding: 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: ui-monospace, Consolas, Menlo, monospace; font-size: 13px;
+    background: #fbfbfd; color: var(--text);
+  }
+  input[type="text"] {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .row > div { flex: 1 1 240px; }
+  .radio { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; font-weight: 400; }
+  .radio input { margin-top: 5px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  button, .filebtn {
+    background: var(--primary); color: #fff; border: 0; border-radius: 8px;
+    padding: 10px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+  }
+  button:hover, .filebtn:hover { background: var(--primary-d); }
+  button.secondary, .filebtn.secondary { background: #e8ebf3; color: var(--text); }
+  button.secondary:hover, .filebtn.secondary:hover { background: #dde1ed; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input[type="file"] { display: none; }
+  .msg { margin-top: 8px; min-height: 1.3em; color: var(--ok); font-size: 14px; }
+  .msg.err { color: #b91c1c; }
+  small { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HTML → Java કન્વર્ટર</h1>
+  <p class="sub">તમારી HTML ફાઇલ પસંદ કરો અથવા કોડ પેસ્ટ કરો, પછી Java ફાઇલ મેળવો. બધું તમારા બ્રાઉઝરમાં જ થાય છે.</p>
+
+  <div class="card">
+    <label for="src">HTML કોડ</label>
+    <textarea id="src" placeholder="અહીં HTML પેસ્ટ કરો અથવા નીચેથી ફાઇલ પસંદ કરો…"></textarea>
+    <div class="btns">
+      <label class="filebtn secondary" for="file" style="margin:0">📂 HTML ફાઇલ પસંદ કરો</label>
+      <input type="file" id="file" accept=".html,.htm,text/html">
+      <button class="secondary" id="clear" type="button">સાફ કરો</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="cls">ક્લાસનું નામ</label>
+        <input type="text" id="cls" value="HtmlPage" autocomplete="off">
+        <small>ફાઇલ પસંદ કરશો તો નામ આપમેળે બદલાશે.</small>
+      </div>
+      <div>
+        <label>આઉટપુટ પ્રકાર</label>
+        <label class="radio"><input type="radio" name="mode" value="builder" checked>
+          <span>StringBuilder <small>(Java 8 અને તેથી ઉપરના બધા વર્ઝન)</small></span></label>
+        <label class="radio"><input type="radio" name="mode" value="textblock">
+          <span>Text Block """ <small>(Java 15+, વાંચવામાં સરળ)</small></span></label>
+      </div>
+    </div>
+    <div class="btns">
+      <button id="convert" type="button">⚙️ Java માં કન્વર્ટ કરો</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="out">Java કોડ</label>
+    <textarea id="out" readonly placeholder="કન્વર્ટ કર્યા પછી Java કોડ અહીં દેખાશે…"></textarea>
+    <div class="btns">
+      <button id="copy" type="button" disabled>📋 કોપી કરો</button>
+      <button id="download" type="button" disabled>⬇️ .java ફાઇલ ડાઉનલોડ કરો</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <small>કમ્પાઇલ કરવા: <code>javac -encoding UTF-8 ClassName.java</code> (ગુજરાતી અક્ષરો હોય તો UTF-8 જરૂરી છે).</small>
+  </div>
+</div>
+
+<script>
+(function () {
+  var src = document.getElementById('src');
+  var out = document.getElementById('out');
+  var cls = document.getElementById('cls');
+  var msg = document.getElementById('msg');
+  var btnCopy = document.getElementById('copy');
+  var btnDl = document.getElementById('download');
+
+  function say(t, isErr) { msg.textContent = t; msg.className = 'msg' + (isErr ? ' err' : ''); }
+
+  function toClassName(s) {
+    var r = '', up = true;
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      if (/[A-Za-z0-9_]/.test(c)) { r += up ? c.toUpperCase() : c; up = false; }
+      else { up = true; }
+    }
+    if (!r) r = 'HtmlPage';
+    if (/^[0-9]/.test(r)) r = '_' + r;
+    return r;
+  }
+
+  function splitLines(text) {
+    var lines = text.split(/\r\n|\r|\n/);
+    if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+    return lines;
+  }
+
+  function escStr(s) {
+    return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\t/g, '\\t');
+  }
+
+  function escBlock(s) {
+    s = s.replace(/\\/g, '\\\\').replace(/"""/g, '\\"""').replace(/\t/g, '\\t');
+    if (/ $/.test(s)) s = s.replace(/ $/, '\\s');
+    return s;
+  }
+
+  function header(name) {
+    return '// આ ફાઇલ HTML → Java કન્વર્ટર દ્વારા આપમેળે બની છે.\n' +
+           'public class ' + name + ' {\n\n';
+  }
+  function footer() {
+    return '    public static void main(String[] args) {\n' +
+           '        System.out.println(getHtml());\n' +
+           '    }\n}\n';
+  }
+
+  function buildBuilder(name, lines) {
+    var s = header(name);
+    s += '    public static String getHtml() {\n';
+    s += '        StringBuilder sb = new StringBuilder();\n';
+    lines.forEach(function (l) { s += '        sb.append("' + escStr(l) + '\\n");\n'; });
+    s += '        return sb.toString();\n    }\n\n';
+    return s + footer();
+  }
+
+  function buildBlock(name, lines) {
+    var s = header(name);
+    s += '    public static String getHtml() {\n        return """\n';
+    lines.forEach(function (l) { s += '                ' + escBlock(l) + '\n'; });
+    s += '                """;\n    }\n\n';
+    return s + footer();
+  }
+
+  function convert() {
+    var text = src.value;
+    if (!text.trim()) { say('પહેલા HTML કોડ નાખો અથવા ફાઇલ પસંદ કરો.', true); return false; }
+    var name = toClassName(cls.value || 'HtmlPage');
+    cls.value = name;
+    var mode = document.querySelector('input[name="mode"]:checked').value;
+    var lines = splitLines(text);
+    out.value = mode === 'textblock' ? buildBlock(name, lines) : buildBuilder(name, lines);
+    btnCopy.disabled = false; btnDl.disabled = false;
+    say('✔ ' + lines.length + ' લાઇન કન્વર્ટ થઈ. ' + name + '.java તૈયાર છે.');
+    return true;
+  }
+
+  document.getElementById('convert').addEventListener('click', convert);
+
+  document.getElementById('file').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      src.value = rd.result;
+      cls.value = toClassName(f.name.replace(/\.[^.]*$/, ''));
+      convert();
+    };
+    rd.onerror = function () { say('ફાઇલ વાંચી શકાઈ નહીં.', true); };
+    rd.readAsText(f, 'UTF-8');
+    e.target.value = '';
+  });
+
+  document.getElementById('clear').addEventListener('click', function () {
+    src.value = ''; out.value = '';
+    btnCopy.disabled = true; btnDl.disabled = true; say('');
+  });
+
+  btnCopy.addEventListener('click', function () {
+    function ok() { say('✔ કોપી થઈ ગયું.'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(out.value).then(ok, function () { out.select(); document.execCommand('copy'); ok(); });
+    } else { out.select(); document.execCommand('copy'); ok(); }
+  });
+
+  btnDl.addEventListener('click', function () {
+    var name = toClassName(cls.value || 'HtmlPage');
+    var blob = new Blob([out.value], { type: 'text/x-java-source;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '.java';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    say('✔ ' + name + '.java ડાઉનલોડ થઈ.');
+  });
+})();
+</script>
+</body>
+</html>

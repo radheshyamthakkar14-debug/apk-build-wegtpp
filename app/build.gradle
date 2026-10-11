@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application'
+}
+
+def props = new Properties()
+def cfg = file("../config.properties")
+if (cfg.exists()) {
+    cfg.withReader("UTF-8") { props.load(it) }
+}
+def appName = props.getProperty("APP_NAME", "My App").trim()
+def appUrl  = props.getProperty("APP_URL", "").trim().replace('"', '').replace('\\', '')
+def appId   = props.getProperty("APP_ID", "com.myapp.webapp").trim()
+
+android {
+    namespace 'com.htmltoapk.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId appId
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        resValue "string", "app_name", appName
+        buildConfigField "String", "START_URL", "\"${appUrl}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
